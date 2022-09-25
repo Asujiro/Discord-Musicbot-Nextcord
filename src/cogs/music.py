@@ -15,7 +15,7 @@ class LavalinkVoiceClient(nextcord.VoiceClient):
     see the following documentation:
     https://nextcord.readthedocs.io/en/latest/api.html#voiceprotocol
     """
-
+    
     def __init__(self, client: nextcord.Client, channel: nextcord.abc.Connectable):
         self.client = client
         self.channel = channel
