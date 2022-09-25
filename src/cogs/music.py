@@ -1,7 +1,9 @@
 import re
 import nextcord
-from nextcord.ext import commands, lava
+from nextcord.ext import commands
 from nextcord import Interaction, Embed, SlashOption
+import lavasnek_rs as lava
+
 
 
 url_rx = re.compile(r"https?://(?:www\.)?.+")
