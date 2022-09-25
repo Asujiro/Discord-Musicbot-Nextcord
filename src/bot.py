@@ -1,24 +1,21 @@
 import os
-from nextcord import Intents
 import nextcord
-from dotenv import load_dotenv
-from nextcord import Interaction, SlashOption
 from nextcord.ext import commands
+from dotenv import load_dotenv
 
-
+#load .env file
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 PREFIX = os.getenv('COMMAND_PREFIX')
 
+#comands
 intents = nextcord.Intents.all()
-
 bot = commands.Bot(PREFIX, intents = intents)
-path = "src/cogs"
-
 initial_extensions = []
 
 
-for filename in os.listdir(path):
+#load cogs
+for filename in os.listdir("cogs"):
         if filename.endswith('.py'):
             initial_extensions.append("cogs." + filename[:-3])
 if __name__ == '__main__':
@@ -26,12 +23,7 @@ if __name__ == '__main__':
             bot.load_extension(extension)
 
 
-
-
-@bot.event
-async def on_ready():
-    print(f'{bot.user} has logged in.')
-
+#Welcome Message for my server
 @bot.event
 async def on_member_join(member):
     guild = member.guild
@@ -41,8 +33,9 @@ async def on_member_join(member):
         msg = f"da kommen ja noch mehr affen rein in den discord, cool hallo {member.mention}\nich hab schon viele sachen über dich gehört\nmostly flame von lukas und den anderen, aber das ist ja normal von denen ^^"
         await guild.system_channel.send(msg)    
 
-
-testServerId = [383717798813106186, 390194259405438989]
-
+#Console message on start up
+@bot.event
+async def on_ready():
+    print(f'{bot.user} has logged in.')
 
 bot.run(TOKEN)
