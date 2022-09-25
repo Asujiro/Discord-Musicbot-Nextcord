@@ -4,8 +4,7 @@ from nextcord.ext import commands
 from nextcord import Interaction, Embed, SlashOption
 import lavasnek_rs as lava
 
-
-
+#Filter for Url
 url_rx = re.compile(r"https?://(?:www\.)?.+")
 
 #VoiceHandler 
