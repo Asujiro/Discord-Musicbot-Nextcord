@@ -3,6 +3,8 @@ import nextcord
 from nextcord.ext import commands
 from dotenv import load_dotenv
 
+dirname = os.path.dirname(__file__)
+
 #load .env file
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -15,13 +17,9 @@ initial_extensions = []
 
 
 #load cogs
-for filename in os.listdir("cogs"):
+for filename in os.listdir(dirname + "/cogs"):
         if filename.endswith('.py'):
-            initial_extensions.append("cogs." + filename[:-3])
-if __name__ == '__main__':
-        for extension in initial_extensions:
-            bot.load_extension(extension)
-
+            bot.load_extension(f"cogs.{filename[:-3]}")
 
 #Welcome Message for my server
 @bot.event
