@@ -5,6 +5,7 @@ from nextcord.ext import commands
 from nextcord import Interaction, Embed, SlashOption
 from dotenv import load_dotenv
 
+#path for cog loading
 dirname = os.path.dirname(__file__)
 
 #load .env file
