@@ -8,7 +8,6 @@ from lavalink.filters import LowPass
 from nextcord import Interaction, Embed, SlashOption
 
 url_rx = re.compile(r'https?://(?:www\.)?.+')
-test_ids = [390194259405438989]
 
 #loads Bot ID from .env
 load_dotenv(find_dotenv())
