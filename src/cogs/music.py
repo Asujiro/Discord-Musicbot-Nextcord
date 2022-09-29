@@ -134,21 +134,21 @@ class Music(commands.Cog):
         
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
         
-        if not interaction.guild.voice_client:
-            # We can't connect, if we're not connected.
-            return await interaction.response.send_message('Not connected.')
-
-        if not interaction.user.voice or (player.is_connected and interaction.user.voice.channel.id != int(player.channel_id)):
-            # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
-            # may not connect the bot.
-            return await interaction.response.send_message('You\'re not in my voicechannel!')
-        
         # Get the player for this guild from cache. When there is no player creat one. 
         if player == None:
             player = self.bot.lavalink.player_manager.create(interaction.guild.id)
             await interaction.user.voice.channel.connect(cls=LavalinkVoiceClient)
         else:
             player = self.bot.lavalink.player_manager.get(interaction.guild.id)
+
+        if not interaction.guild.voice_client:
+            # We can't disconnect, if we're not connected.
+            return await interaction.response.send_message('Not connected.')
+
+        if not interaction.user.voice or (player.is_connected and interaction.user.voice.channel.id != int(player.channel_id)):
+            # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
+            # may not disconnect the bot.
+            return await interaction.response.send_message('You\'re not in my voicechannel!')
 
         # Remove leading and trailing <>. <> may be used to suppress embedding links in nextcord.
         query = query.strip('<>')
@@ -227,7 +227,7 @@ class Music(commands.Cog):
         await interaction.response.send_message('*⃣ | Disconnected.')
 
     
-    @nextcord.slash_command(name="skip", description="skip current track")
+    @nextcord.slash_command(name="skip", description="skip current track", guild_ids=test_ids)
     async def skip(self, interaction: Interaction):
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
         if not interaction.guild.voice_client:
@@ -247,7 +247,7 @@ class Music(commands.Cog):
             await interaction.response.send_message(embed=embed)           
     
     #pause the player
-    @nextcord.slash_command(name='pause', description="pause the current track")
+    @nextcord.slash_command(name='pause', description="pause the current track", guild_ids=test_ids)
     async def pause(self, interaction: Interaction):
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
 
@@ -264,7 +264,7 @@ class Music(commands.Cog):
         await interaction.response.send_message('**Player paused**')
     
     #resume the player
-    @nextcord.slash_command(name='resume', description="resumes paused track")
+    @nextcord.slash_command(name='resume', description="resumes paused track", guild_ids=test_ids)
     async def resume(self, interaction: Interaction):
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
 
@@ -281,7 +281,7 @@ class Music(commands.Cog):
         await interaction.response.send_message('**Player paused**')
 
     
-    @nextcord.slash_command(name="loop", description="loops current song")        
+    @nextcord.slash_command(name="loop", description="loops current song", guild_ids=test_ids)        
     async def loop(self, interaction: Interaction):
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
 
@@ -301,7 +301,7 @@ class Music(commands.Cog):
             return await interaction.response.send_message('**Song stopped looping**')
 
     #change the volume of the bot
-    @nextcord.slash_command(name="volume", description="changes volume of the player to a number between 0-1000")
+    @nextcord.slash_command(name="volume", description="changes volume of the player to a number between 0-1000", guild_ids=test_ids)
     async def volume(self, interaction: Interaction, volume: int = SlashOption(description="volume number")):
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
 
@@ -320,7 +320,7 @@ class Music(commands.Cog):
             await interaction.response.send_message(f'volume changed to {volume}')
 
     #manage lowpass filter
-    @nextcord.slash_command(name="volume", description="Sets the strength of the low pass filter.")
+    @nextcord.slash_command(name="volume", description="Sets the strength of the low pass filter.", guild_ids=test_ids)
     async def lowpass(self, interaction: Interaction, strength: float = SlashOption(description="number between 0 and 100")):
         """ Sets the strength of the low pass filter. """
         # Get the player for this guild from cache.
