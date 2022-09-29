@@ -1,4 +1,3 @@
-from distutils import extension
 import os
 import nextcord
 from nextcord.ext import commands
