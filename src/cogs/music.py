@@ -17,6 +17,7 @@ from nextcord import Interaction, Embed, SlashOption
 
 url_rx = re.compile(r'https?://(?:www\.)?.+')
 test_ids = [390194259405438989]
+bot_id = 902902788009377812
 
 
 class LavalinkVoiceClient(nextcord.VoiceClient):
@@ -34,7 +35,7 @@ class LavalinkVoiceClient(nextcord.VoiceClient):
         if hasattr(self.client, 'lavalink'):
             self.lavalink = self.client.lavalink
         else:
-            self.client.lavalink = lavalink.Client(902902788009377812)
+            self.client.lavalink = lavalink.Client(bot_id)
             self.client.lavalink.add_node(
                 'localhost',
                 8000,
@@ -97,7 +98,7 @@ class Music(commands.Cog):
         self.bot = bot
 
         if not hasattr(bot, 'lavalink'):  # This ensures the client isn't overwritten during cog reloads.
-            bot.lavalink = lavalink.Client(902902788009377812)
+            bot.lavalink = lavalink.Client(bot_id)
             bot.lavalink.add_node('localhost', 8000, 'testing', 'eu', 'default-node')  # Host, Port, Password, Region, Name
 
         lavalink.add_event_hook(self.track_hook)

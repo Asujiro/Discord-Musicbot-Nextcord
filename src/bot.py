@@ -11,6 +11,8 @@ dirname = os.path.dirname(__file__)
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 PREFIX = os.getenv('COMMAND_PREFIX')
+ADMIN_USER = os.getenv('ADMIN_USER')
+
 
 #comands
 intents = nextcord.Intents.all()
@@ -26,28 +28,35 @@ for filename in os.listdir(dirname + "/cogs"):
 
 @nextcord.slash_command(name="load", description="reload cog")
 async def reload_cog(self, interaction: Interaction, *, extention: str = SlashOption(description="cog name")):
-    if interaction.user.id == 218427048153055233:
-        bot.load_extension(f"cogs.{extention}")
-        await interaction.response.send_message("Loaded Cog!")
-    else:
-        await interaction.response.send_message("You need to be an Aplication Admin!")
-
+    try:
+        if interaction.user.id == ADMIN_USER:
+            bot.load_extension(f"cogs.{extention}")
+            await interaction.response.send_message("Loaded Cog!")
+        else:
+            await interaction.response.send_message("You need to be an Aplication Admin!")
+    except Exception as error:
+                print(error)
+                
 @nextcord.slash_command(name="unload", description="unload cog")
 async def unload_cog(self, interaction: Interaction, *, extention: str = SlashOption(description="cog name")):
-    if interaction.user.id == 218427048153055233:
-        bot.unload_extension(f"cogs.{extention}")
-        await interaction.response.send_message("Unloaded Cog!" + extention)
-    else:
-        await interaction.response.send_message("You need to be an Aplication Admin!")
-
+    try:
+        if interaction.user.id == ADMIN_USER:
+            bot.unload_extension(f"cogs.{extention}")
+            await interaction.response.send_message("Unloaded Cog!" + extention)
+        else:
+            await interaction.response.send_message("You need to be an Aplication Admin!")
+    except Exception as error:
+                print(error)
 @nextcord.slash_command(name="reload", description="reload cog")
 async def reload_cog(self, interaction: Interaction, *, extention: str = SlashOption(description="cog name")):
-    if interaction.user.id == 218427048153055233:
-        bot.reload_extension(f"cogs.{extention}")
-        await interaction.response.send_message("Reloaded Cog!")
-    else:
-        await interaction.response.send_message("You need to be an Aplication Admin!")
-
+    try:   
+        if interaction.user.id == ADMIN_USER:
+            bot.reload_extension(f"cogs.{extention}")
+            await interaction.response.send_message("Reloaded Cog!")
+        else:
+            await interaction.response.send_message("You need to be an Aplication Admin!")
+    except Exception as error:
+                print(error)
 
 
 #Welcome Message for my server
