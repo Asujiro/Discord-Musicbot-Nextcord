@@ -137,12 +137,14 @@ class Music(commands.Cog):
 
         if not interaction.guild.voice_client:
             # We can't disconnect, if we're not connected.
-            return await interaction.response.send_message('Not connected.')
+            embed = Embed(title="Not connected.", color=nextcord.Color.blurple())
+            return await interaction.response.send_message(embed=embed)
 
         if not interaction.user.voice or (player.is_connected and interaction.user.voice.channel.id != int(player.channel_id)):
             # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
             # may not disconnect the bot.
-            return await interaction.response.send_message('You\'re not in my voicechannel!')
+            embed = Embed(title="You\'re not in my voicechannel!", color=nextcord.Color.blurple())
+            return await interaction.response.send_message(embed=embed)
 
         # Remove leading and trailing <>. <> may be used to suppress embedding links in nextcord.
         query = query.strip('<>')
@@ -160,7 +162,7 @@ class Music(commands.Cog):
         if not results or not results.tracks:
             return await interaction.response.send_message("**Nothing found!**")
 
-        embed = nextcord.Embed(color=nextcord.Color.blurple())
+        embed = Embed(color=nextcord.Color.blurple())
 
         # Valid loadTypes are:
         #   TRACK_LOADED    - single video/direct URL)
@@ -199,12 +201,14 @@ class Music(commands.Cog):
         
         if not interaction.guild.voice_client:
             # We can't disconnect, if we're not connected.
-            return await interaction.response.send_message('Not connected.')
+            embed = Embed(title="Not connected.", color=nextcord.Color.blurple())
+            return await interaction.response.send_message(embed=embed)
 
         if not interaction.user.voice or (player.is_connected and interaction.user.voice.channel.id != int(player.channel_id)):
             # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
             # may not disconnect the bot.
-            return await interaction.response.send_message('You\'re not in my voicechannel!')
+            embed = Embed(title="You\'re not in my voicechannel!", color=nextcord.Color.blurple())
+            return await interaction.response.send_message(embed=embed)
 
         # Clear the queue to ensure old tracks don't start playing
         # when someone else queues something.
@@ -217,8 +221,8 @@ class Music(commands.Cog):
         guild = self.bot.get_guild(guild_id)
         await guild.voice_client.disconnect(force=True)
         self.bot.lavalink.player_manager.remove(guild_id)
-
-        await interaction.response.send_message('*⃣ | Disconnected.')
+        embed = Embed(title="*⃣ | Disconnected.", color=nextcord.Color.blurple())
+        await interaction.response.send_message(embed=embed)
 
     
     @nextcord.slash_command(name="skip", description="skip current track")
@@ -226,16 +230,19 @@ class Music(commands.Cog):
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
         if not interaction.guild.voice_client:
             # We cant pause, if we're not connected.
-            return await interaction.response.send_message('Not connected.')
+            embed = Embed(title="Not connected.", color=nextcord.Color.blurple())
+            return await interaction.response.send_message(embed=embed)
 
         if not interaction.user.voice or (player.is_connected and interaction.user.voice.channel.id != int(player.channel_id)):
             # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
-            # may not pause the bot.
-            return await interaction.response.send_message('You\'re not in my voicechannel!')
+            # may not pause the bot
+            embed = Embed(title="You\'re not in my voicechannel!", color=nextcord.Color.blurple())
+            return await interaction.response.send_message(embed=embed)
                
         await player.skip()
         if player.current == None:
-            await interaction.response.send_message("**No queue remaining I left your channel**")
+            embed = Embed(title="No queue remaining I left your channel", color=nextcord.Color.blurple())
+            await interaction.response.send_message(embed=embed)
         else:     
             embed=Embed(title="Now Playing:", url=player.current.uri, description=player.current.title, color=nextcord.Color.blurple())
             await interaction.response.send_message(embed=embed)           
@@ -247,15 +254,18 @@ class Music(commands.Cog):
 
         if not interaction.guild.voice_client:
             # We cant pause, if we're not connected.
-            return await interaction.response.send_message('Not connected.')
+            embed = Embed(title="Not connected.", color=nextcord.Color.blurple())
+            return await interaction.response.send_message(embed=embed)
 
         if not interaction.user.voice or (player.is_connected and interaction.user.voice.channel.id != int(player.channel_id)):
             # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
             # may not pause the bot.
-            return await interaction.response.send_message('You\'re not in my voicechannel!')
+            embed = Embed(title="You\'re not in my voicechannel!", color=nextcord.Color.blurple())
+            return await interaction.response.send_message(embed=embed)
 
         await player.set_pause(True)
-        await interaction.response.send_message('**Player paused**')
+        embed = Embed(title="Player paused", color=nextcord.Color.blurple())
+        await interaction.response.send_message(embed=embed)
     
     #resume the player
     @nextcord.slash_command(name='resume', description="resumes paused track")
@@ -264,15 +274,18 @@ class Music(commands.Cog):
 
         if not interaction.guild.voice_client:
             # We cant resume, if we're not connected.
-            return await interaction.response.send_message('Not connected.')
+            embed = Embed(title="Not connected.", color=nextcord.Color.blurple())
+            return await interaction.response.send_message(embed=embed)
 
         if not interaction.user.voice or (player.is_connected and interaction.user.voice.channel.id != int(player.channel_id)):
             # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
             # may not resume the track.
-            return await interaction.response.send_message('You\'re not in my voicechannel!')
+            embed = Embed(title="You\'re not in my voicechannel!", color=nextcord.Color.blurple())
+            return await interaction.response.send_message(embed=embed)
 
         await player.set_pause(False)
-        await interaction.response.send_message('**Player paused**')
+        embed = Embed(title="Player resumed", color=nextcord.Color.blurple())
+        await interaction.response.send_message(embed=embed)
 
     
     @nextcord.slash_command(name="loop", description="loops current song")        
@@ -281,18 +294,22 @@ class Music(commands.Cog):
 
         if not interaction.guild.voice_client:
             # We cant loop the tack, if we're not connected.
-            return await interaction.response.send_message('Not connected.')
+            embed = Embed(title="Not connected.", color=nextcord.Color.blurple())
+            return await interaction.response.send_message(embed=embed)
 
         if not interaction.user.voice or (player.is_connected and interaction.user.voice.channel.id != int(player.channel_id)):
             # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
             # may not loop the track.
-            return await interaction.response.send_message('You\'re not in my voicechannel!')
+            embed = Embed(title="You\'re not in my voicechannel!", color=nextcord.Color.blurple())
+            return await interaction.response.send_message(embed=embed)
         if player.repeat == False:
             player.set_repeat(True)
-            return await interaction.response.send_message('**Song is now looping**')
+            embed = Embed(title="Song is now looping.", color=nextcord.Color.blurple())
+            return await interaction.response.send_message(embed=embed)
         if player.repeat == True:
             player.set_repeat(False)
-            return await interaction.response.send_message('**Song stopped looping**')
+            embed = Embed(title="Song stopped looping.", color=nextcord.Color.blurple())
+            return await interaction.response.send_message(embed=embed)
 
     #change the volume of the bot
     @nextcord.slash_command(name="volume", description="changes volume of the player to a number between 0-1000")
@@ -301,17 +318,21 @@ class Music(commands.Cog):
 
         if not interaction.guild.voice_client:
             # We cant change volume, if we're not connected.
-            return await interaction.response.send_message('Not connected.')
+            embed = Embed(title="Not connected.", color=nextcord.Color.blurple())
+            return await interaction.response.send_message(embed=embed)
 
         if not interaction.user.voice or (player.is_connected and interaction.user.voice.channel.id != int(player.channel_id)):
             # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
             # may not change the volume of the bot.
-            return await interaction.response.send_message('You\'re not in my voicechannel!')
+            embed = Embed(title="You\'re not in my voicechannel!", color=nextcord.Color.blurple())
+            return await interaction.response.send_message(embed=embed)
         if volume > 1000:
-            await interaction.response.send_message("**Choose an number between 0 and 1000**")
+            embed = Embed(title="Choose an number between 0 and 1000", color=nextcord.Color.blurple())
+            await interaction.response.send_message(embed=embed)
         else:
             await player.set_volume(volume)
-            await interaction.response.send_message(f'volume changed to {volume}')
+            embed = Embed(title='volume changed to ', description= {volume}, color=nextcord.Color.blurple())
+            await interaction.response.send_message(embed=embed)
 
     #manage lowpass filter
     @nextcord.slash_command(name="volume", description="Sets the strength of the low pass filter.")
@@ -321,12 +342,14 @@ class Music(commands.Cog):
         player = self.bot.lavalink.player_manager.get(interaction.guild_id)
         if not interaction.guild.voice_client:
             # We cant change lowpass filter, if we're not connected.
-            return await interaction.response.send_message('Not connected.')
+            embed = Embed(title="Not connected.", color=nextcord.Color.blurple())
+            return await interaction.response.send_message(embed=embed)
 
         if not interaction.user.voice or (player.is_connected and interaction.user.voice.channel.id != int(player.channel_id)):
             # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
             # may not change the lowpass filter.
-            return await interaction.response.send_message('You\'re not in my voicechannel!')
+            embed = Embed(title="You\'re not in my voicechannel!", color=nextcord.Color.blurple())
+            return await interaction.response.send_message(embed=embed)
         # This enforces that strength should be a minimum of 0.
         # There's no upper limit on this filter.
         strength = max(0.0, strength)
