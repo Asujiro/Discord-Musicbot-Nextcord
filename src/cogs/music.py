@@ -16,6 +16,7 @@ from lavalink.filters import LowPass
 from nextcord import Interaction, Embed, SlashOption
 
 url_rx = re.compile(r'https?://(?:www\.)?.+')
+test_ids = [390194259405438989]
 
 
 class LavalinkVoiceClient(nextcord.VoiceClient):
@@ -125,13 +126,24 @@ class Music(commands.Cog):
             guild = self.bot.get_guild(guild_id)
             await guild.voice_client.disconnect(force=True)
 
-    @nextcord.slash_command(name="play", description="Play's music", guild_ids=[390194259405438989])
+    @nextcord.slash_command(name="play", description="Play's music", guild_ids=test_ids)
     async def play(self, interaction: Interaction, *, song: str = SlashOption(description="song link")):
         """ Searches and plays a song from a given query. """
         query = song
 
-        # Get the player for this guild from cache. When there is no player creat one. 
+        
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
+        
+        if not interaction.guild.voice_client:
+            # We can't connect, if we're not connected.
+            return await interaction.response.send_message('Not connected.')
+
+        if not interaction.user.voice or (player.is_connected and interaction.user.voice.channel.id != int(player.channel_id)):
+            # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
+            # may not connect the bot.
+            return await interaction.response.send_message('You\'re not in my voicechannel!')
+        
+        # Get the player for this guild from cache. When there is no player creat one. 
         if player == None:
             player = self.bot.lavalink.player_manager.create(interaction.guild.id)
             await interaction.user.voice.channel.connect(cls=LavalinkVoiceClient)
@@ -185,40 +197,7 @@ class Music(commands.Cog):
         if not player.is_playing:
             await player.play()
 
-    @commands.command(aliases=['lp'])
-    async def lowpass(self, ctx, strength: float):
-        """ Sets the strength of the low pass filter. """
-        # Get the player for this guild from cache.
-        player = self.bot.lavalink.player_manager.get(ctx.guild.id)
-
-        # This enforces that strength should be a minimum of 0.
-        # There's no upper limit on this filter.
-        strength = max(0.0, strength)
-
-        # Even though there's no upper limit, we will enforce one anyway to prevent
-        # extreme values from being entered. This will enforce a maximum of 100.
-        strength = min(100, strength)
-
-        embed = nextcord.Embed(color=nextcord.Color.blurple(), title='Low Pass Filter')
-
-        # A strength of 0 effectively means this filter won't function, so we can disable it.
-        if strength == 0.0:
-            player.remove_filter('lowpass')
-            embed.description = 'Disabled **Low Pass Filter**'
-            return await ctx.send(embed=embed)
-
-        # Lets create our filter.
-        low_pass = LowPass()
-        low_pass.update(smoothing=strength)  # Set the filter strength to the user's desired level.
-
-        # This applies our filter. If the filter is already enabled on the player, then this will
-        # just overwrite the filter with the new values.
-        await player.set_filter(low_pass)
-
-        embed.description = f'Set **Low Pass Filter** strength to {strength}.'
-        await ctx.send(embed=embed)
-
-    @nextcord.slash_command(name="leave", description="leaves channel an stop playing", )
+    @nextcord.slash_command(name="leave", description="leaves channel an stop playing", guild_ids=test_ids )
     async def leave(self, interaction: Interaction):
         """ Disconnects the player from the voice channel and clears its queue. """
         player = self.bot.lavalink.player_manager.get(interaction.guild_id)
@@ -238,9 +217,146 @@ class Music(commands.Cog):
         player.queue.clear()
         # Stop the current track so Lavalink consumes less resources.
         await player.stop()
-        # Disconnect from the voice channel.
-        await ctx.voice_client.disconnect(force=True)
-        await ctx.send('*⃣ | Disconnected.')
+
+        # Disconnect from the voice channel and delete Player.
+        guild_id = interaction.guild.id
+        guild = self.bot.get_guild(guild_id)
+        await guild.voice_client.disconnect(force=True)
+        self.bot.lavalink.player_manager.remove(guild_id)
+
+        await interaction.response.send_message('*⃣ | Disconnected.')
+
+    
+    @nextcord.slash_command(name="skip", description="skip current track")
+    async def skip(self, interaction: Interaction):
+        player = self.bot.lavalink.player_manager.get(interaction.guild.id)
+        if not interaction.guild.voice_client:
+            # We cant pause, if we're not connected.
+            return await interaction.response.send_message('Not connected.')
+
+        if not interaction.user.voice or (player.is_connected and interaction.user.voice.channel.id != int(player.channel_id)):
+            # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
+            # may not pause the bot.
+            return await interaction.response.send_message('You\'re not in my voicechannel!')
+               
+        await player.skip()
+        if player.current == None:
+            await interaction.response.send_message("**No queue remaining I left your channel**")
+        else:     
+            embed=Embed(title="Now Playing:", url=player.current.uri, description=player.current.title, color=nextcord.Color.blurple())
+            await interaction.response.send_message(embed=embed)           
+    
+    #pause the player
+    @nextcord.slash_command(name='pause', description="pause the current track")
+    async def pause(self, interaction: Interaction):
+        player = self.bot.lavalink.player_manager.get(interaction.guild.id)
+
+        if not interaction.guild.voice_client:
+            # We cant pause, if we're not connected.
+            return await interaction.response.send_message('Not connected.')
+
+        if not interaction.user.voice or (player.is_connected and interaction.user.voice.channel.id != int(player.channel_id)):
+            # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
+            # may not pause the bot.
+            return await interaction.response.send_message('You\'re not in my voicechannel!')
+
+        await player.set_pause(True)
+        await interaction.response.send_message('**Player paused**')
+    
+    #resume the player
+    @nextcord.slash_command(name='resume', description="resumes paused track")
+    async def resume(self, interaction: Interaction):
+        player = self.bot.lavalink.player_manager.get(interaction.guild.id)
+
+        if not interaction.guild.voice_client:
+            # We cant pause, if we're not connected.
+            return await interaction.response.send_message('Not connected.')
+
+        if not interaction.user.voice or (player.is_connected and interaction.user.voice.channel.id != int(player.channel_id)):
+            # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
+            # may not pause the bot.
+            return await interaction.response.send_message('You\'re not in my voicechannel!')
+
+        await player.set_pause(False)
+        await interaction.response.send_message('**Player paused**')
+
+    
+    @nextcord.slash_command(name="loop", description="loops current song")        
+    async def loop(self, interaction: Interaction):
+        player = self.bot.lavalink.player_manager.get(interaction.guild.id)
+
+        if not interaction.guild.voice_client:
+            # We cant pause, if we're not connected.
+            return await interaction.response.send_message('Not connected.')
+
+        if not interaction.user.voice or (player.is_connected and interaction.user.voice.channel.id != int(player.channel_id)):
+            # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
+            # may not pause the bot.
+            return await interaction.response.send_message('You\'re not in my voicechannel!')
+        if player.repeat == False:
+            player.set_repeat(True)
+            return await interaction.response.send_message('**Song is now looping**')
+        if player.repeat == True:
+            player.set_repeat(False)
+            return await interaction.response.send_message('**Song stopped looping**')
+
+    @nextcord.slash_command(name="volume", description="changes volume of the player to a number between 0-1000")
+    async def volume(self, interaction: Interaction, volume: int = SlashOption(description="volume number")):
+        player = self.bot.lavalink.player_manager.get(interaction.guild.id)
+
+        if not interaction.guild.voice_client:
+            # We cant pause, if we're not connected.
+            return await interaction.response.send_message('Not connected.')
+
+        if not interaction.user.voice or (player.is_connected and interaction.user.voice.channel.id != int(player.channel_id)):
+            # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
+            # may not pause the bot.
+            return await interaction.response.send_message('You\'re not in my voicechannel!')
+        if volume > 1000:
+            await interaction.response.send_message("**Choose an number between 0 and 1000**")
+        else:
+            await player.set_volume(volume)
+            await interaction.response.send_message(f'volume changed to {volume}')
+
+    @nextcord.slash_command(name="volume", description="Sets the strength of the low pass filter.")
+    async def lowpass(self, interaction: Interaction, strength: float = SlashOption(description="number between 0 and 100")):
+        """ Sets the strength of the low pass filter. """
+        # Get the player for this guild from cache.
+        player = self.bot.lavalink.player_manager.get(interaction.guild_id)
+        if not interaction.guild.voice_client:
+            # We cant change lowpass filter, if we're not connected.
+            return await interaction.response.send_message('Not connected.')
+
+        if not interaction.user.voice or (player.is_connected and interaction.user.voice.channel.id != int(player.channel_id)):
+            # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
+            # may not change the lowpass filter.
+            return await interaction.response.send_message('You\'re not in my voicechannel!')
+        # This enforces that strength should be a minimum of 0.
+        # There's no upper limit on this filter.
+        strength = max(0.0, strength)
+
+        # Even though there's no upper limit, we will enforce one anyway to prevent
+        # extreme values from being entered. This will enforce a maximum of 100.
+        strength = min(100, strength)
+
+        embed = nextcord.Embed(color=nextcord.Color.blurple(), title='Low Pass Filter')
+
+        # A strength of 0 effectively means this filter won't function, so we can disable it.
+        if strength == 0.0:
+            player.remove_filter('lowpass')
+            embed.description = 'Disabled **Low Pass Filter**'
+            return await interaction.response.send_message(embed=embed)
+
+        # Lets create our filter.
+        low_pass = LowPass()
+        low_pass.update(smoothing=strength)  # Set the filter strength to the user's desired level.
+
+        # This applies our filter. If the filter is already enabled on the player, then this will
+        # just overwrite the filter with the new values.
+        await player.set_filter(low_pass)
+
+        embed.description = f'Set **Low Pass Filter** strength to {strength}.'
+        await interaction.response.send_message(embed=embed)
 
 
 def setup(bot):
