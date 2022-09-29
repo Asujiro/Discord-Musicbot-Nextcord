@@ -193,7 +193,7 @@ class Music(commands.Cog):
         if not player.is_playing:
             await player.play()
 
-    @nextcord.slash_command(name="leave", description="leaves channel an stop playing")
+    @nextcord.slash_command(name="leave", description="leaves the voice channel")
     async def leave(self, interaction: Interaction):
         """ Disconnects the player from the voice channel and clears its queue. """
         player = self.bot.lavalink.player_manager.get(interaction.guild_id)
@@ -312,8 +312,8 @@ class Music(commands.Cog):
             return await interaction.response.send_message(embed=embed)
 
     #change the volume of the bot
-    @nextcord.slash_command(name="volume", description="changes volume of the player to a number between 0-1000")
-    async def volume(self, interaction: Interaction, volume: int = SlashOption(description="volume number")):
+    @nextcord.slash_command(name="volume", description="changes volume of the player")
+    async def volume(self, interaction: Interaction, volume: int = SlashOption(description="number between 0 and 1000")):
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
 
         if not interaction.guild.voice_client:
