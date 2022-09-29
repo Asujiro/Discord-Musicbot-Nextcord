@@ -269,12 +269,12 @@ class Music(commands.Cog):
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
 
         if not interaction.guild.voice_client:
-            # We cant pause, if we're not connected.
+            # We cant resume, if we're not connected.
             return await interaction.response.send_message('Not connected.')
 
         if not interaction.user.voice or (player.is_connected and interaction.user.voice.channel.id != int(player.channel_id)):
             # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
-            # may not pause the bot.
+            # may not resume the track.
             return await interaction.response.send_message('You\'re not in my voicechannel!')
 
         await player.set_pause(False)
@@ -286,12 +286,12 @@ class Music(commands.Cog):
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
 
         if not interaction.guild.voice_client:
-            # We cant pause, if we're not connected.
+            # We cant loop the tack, if we're not connected.
             return await interaction.response.send_message('Not connected.')
 
         if not interaction.user.voice or (player.is_connected and interaction.user.voice.channel.id != int(player.channel_id)):
             # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
-            # may not pause the bot.
+            # may not loop the track.
             return await interaction.response.send_message('You\'re not in my voicechannel!')
         if player.repeat == False:
             player.set_repeat(True)
@@ -300,17 +300,18 @@ class Music(commands.Cog):
             player.set_repeat(False)
             return await interaction.response.send_message('**Song stopped looping**')
 
+    #change the volume of the bot
     @nextcord.slash_command(name="volume", description="changes volume of the player to a number between 0-1000")
     async def volume(self, interaction: Interaction, volume: int = SlashOption(description="volume number")):
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
 
         if not interaction.guild.voice_client:
-            # We cant pause, if we're not connected.
+            # We cant change volume, if we're not connected.
             return await interaction.response.send_message('Not connected.')
 
         if not interaction.user.voice or (player.is_connected and interaction.user.voice.channel.id != int(player.channel_id)):
             # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
-            # may not pause the bot.
+            # may not change the volume of the bot.
             return await interaction.response.send_message('You\'re not in my voicechannel!')
         if volume > 1000:
             await interaction.response.send_message("**Choose an number between 0 and 1000**")
@@ -318,6 +319,7 @@ class Music(commands.Cog):
             await player.set_volume(volume)
             await interaction.response.send_message(f'volume changed to {volume}')
 
+    #manage lowpass filter
     @nextcord.slash_command(name="volume", description="Sets the strength of the low pass filter.")
     async def lowpass(self, interaction: Interaction, strength: float = SlashOption(description="number between 0 and 100")):
         """ Sets the strength of the low pass filter. """
