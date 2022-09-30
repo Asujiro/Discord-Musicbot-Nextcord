@@ -335,7 +335,7 @@ class Music(commands.Cog):
             await interaction.response.send_message(embed=embed)
 
     #manage lowpass filter
-    @nextcord.slash_command(name="volume", description="Sets the strength of the low pass filter.")
+    @nextcord.slash_command(name="lowpass", description="Sets the strength of the low pass filter.")
     async def lowpass(self, interaction: Interaction, strength: float = SlashOption(description="number between 0 and 100")):
         """ Sets the strength of the low pass filter. """
         # Get the player for this guild from cache.

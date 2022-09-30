@@ -19,13 +19,6 @@ intents = nextcord.Intents.all()
 bot = commands.Bot(PREFIX, intents = intents)
 initial_extensions = []
 
-
-#load cogs
-for filename in os.listdir(dirname + "/cogs"):
-        if filename.endswith('.py'):
-            bot.load_extension(f"cogs.{filename[:-3]}")
-
-
 @nextcord.slash_command(name="load", description="reload cog")
 async def load_cog(self, interaction: Interaction, *, extention: str = SlashOption(description="cog name")):
     try:
@@ -64,6 +57,12 @@ async def reload_cog(self, interaction: Interaction, *, extention: str = SlashOp
             await interaction.response.send_message(embed=embed)
     except Exception as error:
                 print(error)
+
+#load cogs
+for filename in os.listdir(dirname + "/cogs"):
+        if filename.endswith('.py'):
+            bot.load_extension(f"cogs.{filename[:-3]}")
+
 
 
 #Welcome Message for my server
