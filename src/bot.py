@@ -13,57 +13,15 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 PREFIX = os.getenv('COMMAND_PREFIX')
 ADMIN_USER = os.getenv('ADMIN_USER')
 
-
 #comands
 intents = nextcord.Intents.all()
 bot = commands.Bot(PREFIX, intents = intents)
 initial_extensions = []
 
-@nextcord.slash_command(name="load", description="reload cog")
-async def load_cog(self, interaction: Interaction, *, extention: str = SlashOption(description="cog name")):
-    try:
-        if interaction.user.id == ADMIN_USER:
-            bot.load_extension(f"cogs.{extention}")
-            embed = Embed(title=f"Loaded Cog! {extention}", color=nextcord.Color.blurple())
-            await interaction.response.send_message(embed=embed)
-        else:
-            embed = Embed(title="You need to be an Aplication Admin!", color=nextcord.Color.blurple())
-            await interaction.response.send_message(embed=embed)
-    except Exception as error:
-                print(error)
-                
-@nextcord.slash_command(name="unload", description="unload cog")
-async def unload_cog(self, interaction: Interaction, *, extention: str = SlashOption(description="cog name")):
-    try:
-        if interaction.user.id == ADMIN_USER:
-            bot.unload_extension(f"cogs.{extention}")
-            embed = Embed(title=f"Unloaded Cog! {extention}", color=nextcord.Color.blurple())
-            await interaction.response.send_message(embed=embed)
-        else:
-            embed = Embed(title="You need to be an Aplication Admin!", color=nextcord.Color.blurple())
-            await interaction.response.send_message(embed=embed)
-    except Exception as error:
-                print(error)
-
-@nextcord.slash_command(name="reload", description="reload cog")
-async def reload_cog(self, interaction: Interaction, *, extention: str = SlashOption(description="cog name")):
-    try:   
-        if interaction.user.id == ADMIN_USER:
-            bot.reload_extension(f"cogs.{extention}")
-            embed = Embed(title="Reloaded Cog!", color=nextcord.Color.blurple())
-            await interaction.response.send_message(embed=embed)
-        else:
-            embed = Embed(title="You need to be an Aplication Admin!", color=nextcord.Color.blurple())
-            await interaction.response.send_message(embed=embed)
-    except Exception as error:
-                print(error)
-
 #load cogs
 for filename in os.listdir(dirname + "/cogs"):
         if filename.endswith('.py'):
             bot.load_extension(f"cogs.{filename[:-3]}")
-
-
 
 #Welcome Message for my server
 @bot.event
@@ -79,5 +37,6 @@ async def on_member_join(member):
 @bot.event
 async def on_ready():
     print(f'{bot.user} has logged in.')
+
 
 bot.run(TOKEN)
