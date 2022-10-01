@@ -126,7 +126,6 @@ class Music(commands.Cog):
         """ Searches and plays a song from a given query. """
         query = song
 
-        
         player = self.bot.lavalink.player_manager.get(interaction.guild.id)
         
         # Get the player for this guild from cache. When there is no player creat one. 
@@ -240,7 +239,7 @@ class Music(commands.Cog):
             embed = Embed(title="No queue remaining I left your channel", color=nextcord.Color.blurple())
             await interaction.response.send_message(embed=embed)
         else:     
-            embed=Embed(title="Now Playing:", url=player.current.uri, description=player.current.title, color=nextcord.Color.blurple())
+            embed=Embed(title="Now Playing:", description=player.current.title, url=player.current.uri, color=nextcord.Color.blurple())
             await interaction.response.send_message(embed=embed)           
     
     #pause the player
