@@ -119,6 +119,7 @@ class Music(commands.Cog):
             guild_id = event.player.guild_id
             guild = self.bot.get_guild(guild_id)
             await guild.voice_client.disconnect(force=True)
+            await self.bot.lavalink.player_manager.remove(guild_id)
 
     @nextcord.slash_command(name="play", description="Play's music")
     async def play(self, interaction: Interaction, *, song: str = SlashOption(description="song link")):
@@ -134,11 +135,6 @@ class Music(commands.Cog):
             await interaction.user.voice.channel.connect(cls=LavalinkVoiceClient)
         else:
             player = self.bot.lavalink.player_manager.get(interaction.guild.id)
-
-        if not interaction.guild.voice_client:
-            # We can't disconnect, if we're not connected.
-            embed = Embed(title="Not connected.", color=nextcord.Color.blurple())
-            return await interaction.response.send_message(embed=embed)
 
         if not interaction.user.voice or (player.is_connected and interaction.user.voice.channel.id != int(player.channel_id)):
             # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
