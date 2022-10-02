@@ -119,7 +119,7 @@ class Music(commands.Cog):
             guild_id = event.player.guild_id
             guild = self.bot.get_guild(guild_id)
             await guild.voice_client.disconnect(force=True)
-            await self.bot.lavalink.player_manager.remove(guild_id)
+            self.bot.lavalink.player_manager.remove(guild_id)
 
     @nextcord.slash_command(name="play", description="Play's music")
     async def play(self, interaction: Interaction, *, song: str = SlashOption(description="song link")):
