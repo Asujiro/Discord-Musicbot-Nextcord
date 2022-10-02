@@ -177,7 +177,7 @@ class Music(commands.Cog):
             embed.description = f'{results.playlist_info.name} - {len(tracks)} tracks'
         else:
             track = results.tracks[0]
-            embed.title = 'Track Enqueued'
+            embed.title = 'Track Enqueued:'
             embed.description = f'[{track.title}]({track.uri})'
 
             player.add(requester=interaction.user.id, track=track)
