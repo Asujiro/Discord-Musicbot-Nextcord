@@ -155,7 +155,8 @@ class Music(commands.Cog):
         # Results could be None if Lavalink returns an invalid response (non-JSON/non-200 (OK)).
         # ALternatively, resullts.tracks could be an empty array if the query yielded no tracks.
         if not results or not results.tracks:
-            return await interaction.response.send_message("**Nothing found!**")
+            embed = Embed(title="Nothing found!", color=nextcord.Color.blurple())
+            return await interaction.response.send_message(embed=embed)
 
         embed = Embed(color=nextcord.Color.blurple())
 
@@ -238,8 +239,9 @@ class Music(commands.Cog):
         if player.current == None:
             embed = Embed(title="No queue remaining I left your channel", color=nextcord.Color.blurple())
             await interaction.response.send_message(embed=embed)
-        else:     
-            embed=Embed(title="Now Playing:", description=player.current.title, url=player.current.uri, color=nextcord.Color.blurple())
+        else:
+            embed=Embed(title="Now Playing:", color=nextcord.Color.blurple())
+            embed.description = f'[{player.current.title}]({player.current.uri})'     
             await interaction.response.send_message(embed=embed)           
     
     #pause the player
