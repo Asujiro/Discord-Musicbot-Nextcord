@@ -374,6 +374,65 @@ class Music(commands.Cog):
         embed.description = f'Set **Low Pass Filter** strength to {strength}.'
         await interaction.response.send_message(embed=embed)
 
+    @nextcord.slash_command(name="freebird", description="Play's freebird")
+    async def freebird(self, interaction: Interaction):
+        """ Searches and plays a song from a given query. """
+        query = "https://www.youtube.com/watch?v=0LwcvjNJTuM"
+
+        player = self.bot.lavalink.player_manager.get(interaction.guild.id)
+        
+        # Get the player for this guild from cache. When there is no player creat one. 
+        if player == None:
+            player = self.bot.lavalink.player_manager.create(interaction.guild.id)
+            await interaction.user.voice.channel.connect(cls=LavalinkVoiceClient)
+        else:
+            player = self.bot.lavalink.player_manager.get(interaction.guild.id)
+
+        if not interaction.user.voice or (player.is_connected and interaction.user.voice.channel.id != int(player.channel_id)):
+            # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
+            # may not disconnect the bot.
+            embed = Embed(title="You\'re not in my voicechannel!", color=nextcord.Color.blurple())
+            return await interaction.response.send_message(embed=embed)
+
+        # Remove leading and trailing <>. <> may be used to suppress embedding links in nextcord.
+        query = query.strip('<>')
+
+        # Check if the user input might be a URL. If it isn't, we can Lavalink do a YouTube search for it instead.
+        # SoundCloud searching is possible by prefixing "scsearch:" instead.
+        if not url_rx.match(query):
+            query = f'ytsearch:{query}'
+
+        # Get the results for the query from Lavalink.
+        results = await player.node.get_tracks(query)
+
+        # Results could be None if Lavalink returns an invalid response (non-JSON/non-200 (OK)).
+        # ALternatively, resullts.tracks could be an empty array if the query yielded no tracks.
+        if not results or not results.tracks:
+            embed = Embed(title="Nothing found!", color=nextcord.Color.blurple())
+            return await interaction.response.send_message(embed=embed)
+
+        embed = Embed(color=nextcord.Color.blurple())
+
+        # Valid loadTypes are:
+        #   TRACK_LOADED    - single video/direct URL)
+        #   PLAYLIST_LOADED - direct URL to playlist)
+        #   SEARCH_RESULT   - query prefixed with either ytsearch: or scsearch:.
+        #   NO_MATCHES      - query yielded no results
+        #   LOAD_FAILED     - most likely, the video encountered an exception during loading.
+        
+        track = results.tracks[0]
+        embed.title = 'Track Enqueued:'
+        embed.description = f'[{track.title}]({track.uri})'
+
+        player.add(requester=interaction.user.id, track=track)
+
+        await interaction.response.send_message(embed=embed)
+
+        # We don't want to call .play() if the player is playing as that will effectively skip
+        # the current track.
+        if not player.is_playing:
+            await player.play()
+
 
 def setup(bot):
     bot.add_cog(Music(bot))
