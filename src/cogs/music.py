@@ -374,7 +374,7 @@ class Music(commands.Cog):
         embed.description = f'Set **Low Pass Filter** strength to {strength}.'
         await interaction.response.send_message(embed=embed)
 
-    @nextcord.slash_command(name="Freebird", description="Play's Freebird")
+    @nextcord.slash_command(name="freebird", description="Play's Freebird")
     async def freebird(self, interaction: Interaction):
         """ Searches and plays a song from a given query. """
         query = "https://www.youtube.com/watch?v=0LwcvjNJTuM"
