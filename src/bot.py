@@ -22,7 +22,7 @@ initial_extensions = []
 for filename in os.listdir(dirname + "/cogs"):
         if filename.endswith('.py'):
             bot.load_extension(f"cogs.{filename[:-3]}")
-
+            print(filename)
 #Welcome Message for my server
 @bot.event
 async def on_member_join(member):
