@@ -1,437 +1,189 @@
 import os
 import re
+
+from discord import Interaction, Embed
 from dotenv import load_dotenv, find_dotenv
-import nextcord
-import lavalink
-from nextcord.ext import commands
-from lavalink.filters import LowPass
-from nextcord import Interaction, Embed, SlashOption
+import wavelink
+from typing import cast
+
+import discord
+from discord.ext import commands
+
+import wavelink
+
+
 
 url_rx = re.compile(r'https?://(?:www\.)?.+')
 
-#loads Bot ID from .env
+# loads Bot ID from .env
 load_dotenv(find_dotenv())
 BOT_ID = os.getenv('BOT_ID')
 IP = os.getenv('IP')
 PORT = os.getenv('PORT')
 REGION = os.getenv('REGION')
 NODE = os.getenv('NODE_NAME')
-PASSWORD= os.getenv('PASSWORD')
-
-
-class LavalinkVoiceClient(nextcord.VoiceClient):
-
-    def __init__(self, client: nextcord.Client, channel: nextcord.abc.Connectable):
-        self.client = client
-        self.channel = channel
-        # ensure a client already exists
-        if hasattr(self.client, 'lavalink'):
-            self.lavalink = self.client.lavalink
-        else:
-            self.client.lavalink = lavalink.Client(BOT_ID)
-            self.client.lavalink.add_node(
-                IP,
-                PORT,
-                PASSWORD,
-                REGION,
-                NODE
-            )
-            self.lavalink = self.client.lavalink
-
-    async def on_voice_server_update(self, data):
-        # the data needs to be transformed before being handed down to
-        # voice_update_handler
-        lavalink_data = {
-            't': 'VOICE_SERVER_UPDATE',
-            'd': data
-        }
-        await self.lavalink.voice_update_handler(lavalink_data)
-
-    async def on_voice_state_update(self, data):
-        # the data needs to be transformed before being handed down to
-        # voice_update_handler
-        lavalink_data = {
-            't': 'VOICE_STATE_UPDATE',
-            'd': data
-        }
-        await self.lavalink.voice_update_handler(lavalink_data)
-
-    async def connect(self, *, timeout: float, reconnect: bool, self_deaf: bool = False, self_mute: bool = False) -> None:
-        """
-        Connect the bot to the voice channel and create a player_manager
-        if it doesn't exist yet.
-        """
-        # ensure there is a player_manager when creating a new voice_client
-        self.lavalink.player_manager.create(guild_id=self.channel.guild.id)
-        await self.channel.guild.change_voice_state(channel=self.channel, self_mute=self_mute, self_deaf=self_deaf)
-
-    async def disconnect(self, *, force: bool = False) -> None:
-        """
-        Handles the disconnect.
-        Cleans up running player and leaves the voice client.
-        """
-        player = self.lavalink.player_manager.get(self.channel.guild.id)
-
-        # no need to disconnect if we are not connected
-        if not force and not player.is_connected:
-            return
-
-        # None means disconnect
-        await self.channel.guild.change_voice_state(channel=None)
-
-        # update the channel_id of the player to None
-        # this must be done because the on_voice_state_update that would set channel_id
-        # to None doesn't get dispatched after the disconnect
-        player.channel_id = None
-        self.cleanup()
+PASSWORD = os.getenv('PASSWORD')
 
 
 class Music(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-        if not hasattr(bot, 'lavalink'):  # This ensures the client isn't overwritten during cog reloads.
-            bot.lavalink = lavalink.Client(BOT_ID)
-            bot.lavalink.add_node(IP, PORT, PASSWORD, REGION, NODE)  # Host, Port, Password, Region, Name
+    async def setup_hook(self) -> None:
+        nodes = [wavelink.Node(uri="localhost:5000", password=PASSWORD)]
 
-        lavalink.add_event_hook(self.track_hook)
+        # cache_capacity is EXPERIMENTAL. Turn it off by passing None
+        await wavelink.Pool.connect(nodes=nodes, client=self)
 
-    def cog_unload(self):
-        """ Cog unload handler. This removes any event hooks that were registered. """
-        self.bot.lavalink._event_hooks.clear()
+    @commands.Cog.listener()
+    async def on_wavelink_node_ready(self, payload: wavelink.NodeReadyEventPayload) -> None:
+        print(f"Wavelink Node connected: {payload.node!r} | Resumed: {payload.resumed}")
 
-  
-    async def cog_command_error(self, ctx, error):
-        if isinstance(error, commands.CommandInvokeError):
-            await ctx.send(error.original)
-            # The above handles errors thrown in this cog and shows them to the user.
-            # This shouldn't be a problem as the only errors thrown in this cog are from `ensure_voice`
-            # which contain a reason string, such as "Join a voicechannel" etc. You can modify the above
-            # if you want to do things differently.
+    @commands.Cog.listener()
+    async def on_wavelink_track_start(self, payload: wavelink.TrackStartEventPayload) -> None:
+        player: wavelink.Player | None = payload.player
+        if not player:
+            # Handle edge cases...
+            return
 
-    
+        original: wavelink.Playable | None = payload.original
+        track: wavelink.Playable = payload.track
 
-    async def track_hook(self, event):
-        if isinstance(event, lavalink.events.QueueEndEvent):
-            # When this track_hook receives a "QueueEndEvent" from lavalink.py
-            # it indicates that there are no tracks left in the player's queue.
-            # To save on resources, we can tell the bot to disconnect from the voicechannel.
-            guild_id = event.player.guild_id
-            guild = self.bot.get_guild(guild_id)
-            await guild.voice_client.disconnect(force=True)
-            self.bot.lavalink.player_manager.remove(guild_id)
+        embed: discord.Embed = discord.Embed(title="Now Playing")
+        embed.description = f"**{track.title}** by `{track.author}`"
 
-    @nextcord.slash_command(name="play", description="Play's music")
-    async def play(self, interaction: Interaction, *, song: str = SlashOption(description="song link")):
-        """ Searches and plays a song from a given query. """
-        query = song
+        if track.artwork:
+            embed.set_image(url=track.artwork)
 
-        player = self.bot.lavalink.player_manager.get(interaction.guild.id)
-        
-        # Get the player for this guild from cache. When there is no player creat one. 
-        if player == None:
-            player = self.bot.lavalink.player_manager.create(interaction.guild.id)
-            await interaction.user.voice.channel.connect(cls=LavalinkVoiceClient)
+        if original and original.recommended:
+            embed.description += f"\n\n`This track was recommended via {track.source}`"
+
+        if track.album.name:
+            embed.add_field(name="Album", value=track.album.name)
+
+        await player.home.send(embed=embed)
+
+
+    @commands.command(name="Play", description="Play Song")
+    async def play(self, interaction:Interaction, query: str):
+        """Play a song with the given query."""
+        if not Interaction.guild:
+            return
+
+        player: wavelink.Player
+        player = cast(wavelink.Player, interaction.guild.voice_client)  # type: ignore
+
+        if not player:
+            try:
+                player = await interaction.user.voice.channel.connect(cls=wavelink.Player)  # type: ignore
+            except AttributeError:
+                embed = Embed(title="Please join a voice channel first before using this command.", color=discord.Color.blurple())
+                await interaction.response.send_message(embed = embed)
+                return
+            except discord.ClientException:
+
+                embed = Embed(title="I was unable to join this voice channel. Please try again.", color=discord.Color.blurple())
+                await interaction.response.send_message(embed = embed)
+                return
+
+        # Turn on AutoPlay to enabled mode.
+        # enabled = AutoPlay will play songs for us and fetch recommendations...
+        # partial = AutoPlay will play songs for us, but WILL NOT fetch recommendations...
+        # disabled = AutoPlay will do nothing...
+        player.autoplay = wavelink.AutoPlayMode.enabled
+
+        # Lock the player to this channel...
+        if not hasattr(player, "home"):
+            player.home = interaction.user.voice.channel
+        elif player.home != interaction.user.voice.channel:
+            embed = Embed(title=f"You can only play songs in {player.home.mention}, as the player has already started there.", color=discord.Color.blurple())
+            await interaction.response.send_message(embed = embed)
+            return
+
+        # This will handle fetching Tracks and Playlists...
+        # Seed the doc strings for more information on this method...
+        # If spotify is enabled via LavaSrc, this will automatically fetch Spotify tracks if you pass a URL...
+        # Defaults to YouTube for non URL based queries...
+        tracks: wavelink.Search = await wavelink.Playable.search(query)
+        if not tracks:
+            embed = Embed(title="Could not find any tracks with that query. Please try again.", color=discord.Color.blurple())
+            await interaction.response.send_message(embed = embed)
+            return
+
+        if isinstance(tracks, wavelink.Playlist):
+            # tracks is a playlist...
+            added: int = await player.queue.put_wait(tracks)
+            embed = Embed(title=f"Added the playlist **`{tracks.name}`** ({added} songs) to the queue.", color=discord.Color.blurple())
+            await interaction.response.send_message(embed = embed)
         else:
-            player = self.bot.lavalink.player_manager.get(interaction.guild.id)
+            track: wavelink.Playable = tracks[0]
+            await player.queue.put_wait(track)
+            embed = Embed(title=f"Added **`{track}`** to the queue.", color=discord.Color.blurple())
+            await interaction.response.send_message(embed = embed)
 
-        if not interaction.user.voice or (player.is_connected and interaction.user.voice.channel.id != int(player.channel_id)):
-            # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
-            # may not disconnect the bot.
-            embed = Embed(title="You\'re not in my voicechannel!", color=nextcord.Color.blurple())
-            return await interaction.response.send_message(embed=embed)
+        if not player.playing:
+            # Play now since we aren't playing anything...
+            await player.play(player.queue.get(), volume=30)
 
-        # Remove leading and trailing <>. <> may be used to suppress embedding links in nextcord.
-        query = query.strip('<>')
 
-        # Check if the user input might be a URL. If it isn't, we can Lavalink do a YouTube search for it instead.
-        # SoundCloud searching is possible by prefixing "scsearch:" instead.
-        if not url_rx.match(query):
-            query = f'ytsearch:{query}'
-
-        # Get the results for the query from Lavalink.
-        results = await player.node.get_tracks(query)
-
-        # Results could be None if Lavalink returns an invalid response (non-JSON/non-200 (OK)).
-        # ALternatively, resullts.tracks could be an empty array if the query yielded no tracks.
-        if not results or not results.tracks:
-            embed = Embed(title="Nothing found!", color=nextcord.Color.blurple())
-            return await interaction.response.send_message(embed=embed)
-
-        embed = Embed(color=nextcord.Color.blurple())
-
-        # Valid loadTypes are:
-        #   TRACK_LOADED    - single video/direct URL)
-        #   PLAYLIST_LOADED - direct URL to playlist)
-        #   SEARCH_RESULT   - query prefixed with either ytsearch: or scsearch:.
-        #   NO_MATCHES      - query yielded no results
-        #   LOAD_FAILED     - most likely, the video encountered an exception during loading.
-        if results.load_type == 'PLAYLIST_LOADED':
-            tracks = results.tracks
-
-            for track in tracks:
-                # Add all of the tracks from the playlist to the queue.
-                player.add(requester=interaction.user.id, track=track)
-
-            embed.title = 'Playlist Enqueued!'
-            embed.description = f'{results.playlist_info.name} - {len(tracks)} tracks'
-        else:
-            track = results.tracks[0]
-            embed.title = 'Track Enqueued:'
-            embed.description = f'[{track.title}]({track.uri})'
-
-            player.add(requester=interaction.user.id, track=track)
-
-        await interaction.response.send_message(embed=embed)
-
-        # We don't want to call .play() if the player is playing as that will effectively skip
-        # the current track.
-        if not player.is_playing:
-            await player.play()
-
-    @nextcord.slash_command(name="leave", description="leaves the voice channel")
-    async def leave(self, interaction: Interaction):
-        """ Disconnects the player from the voice channel and clears its queue. """
-        player = self.bot.lavalink.player_manager.get(interaction.guild_id)
-        
-        
-        if not interaction.guild.voice_client:
-            # We can't disconnect, if we're not connected.
-            embed = Embed(title="Not connected.", color=nextcord.Color.blurple())
-            return await interaction.response.send_message(embed=embed)
-
-        if not interaction.user.voice or (player.is_connected and interaction.user.voice.channel.id != int(player.channel_id)):
-            # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
-            # may not disconnect the bot.
-            embed = Embed(title="You\'re not in my voicechannel!", color=nextcord.Color.blurple())
-            return await interaction.response.send_message(embed=embed)
-
-        # Clear the queue to ensure old tracks don't start playing
-        # when someone else queues something.
-        player.queue.clear()
-        # Stop the current track so Lavalink consumes less resources.
-        await player.stop()
-
-        # Disconnect from the voice channel and delete Player.
-        guild_id = interaction.guild.id
-        guild = self.bot.get_guild(guild_id)
-        await guild.voice_client.disconnect(force=True)
-        self.bot.lavalink.player_manager.remove(guild_id)
-        embed = Embed(title="*⃣ | Disconnected.", color=nextcord.Color.blurple())
-        await interaction.response.send_message(embed=embed)
-
-    
-    @nextcord.slash_command(name="skip", description="skip current track")
+    @commands.command(name="Skip", description="Skip current track")
     async def skip(self, interaction: Interaction):
-        player = self.bot.lavalink.player_manager.get(interaction.guild.id)
-        if not interaction.guild.voice_client:
-            # We cant pause, if we're not connected.
-            embed = Embed(title="Not connected.", color=nextcord.Color.blurple())
-            return await interaction.response.send_message(embed=embed)
+        """Skip the current song."""
+        player: wavelink.Player = cast(wavelink.Player, interaction.guild.voice_client)
+        if not player:
+            return
+        embed = Embed(title="Track Skipped", color=discord.Color.blurple())
+        await player.skip(force=True)
+        await interaction.response.send_message(embed = embed)
 
-        if not interaction.user.voice or (player.is_connected and interaction.user.voice.channel.id != int(player.channel_id)):
-            # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
-            # may not pause the bot
-            embed = Embed(title="You\'re not in my voicechannel!", color=nextcord.Color.blurple())
-            return await interaction.response.send_message(embed=embed)
-               
-        await player.skip()
-        if player.current == None:
-            embed = Embed(title="No queue remaining I left your channel", color=nextcord.Color.blurple())
-            await interaction.response.send_message(embed=embed)
-        else:
-            embed=Embed(title="Now Playing:", color=nextcord.Color.blurple())
-            embed.description = f'[{player.current.title}]({player.current.uri})'     
-            await interaction.response.send_message(embed=embed)           
-    
-    #pause the player
-    @nextcord.slash_command(name='pause', description="pause the current track")
-    async def pause(self, interaction: Interaction):
-        player = self.bot.lavalink.player_manager.get(interaction.guild.id)
+    @commands.command(name="nightcore", description="apply nightcore filter")
+    async def nightcore(self, interaction: Interaction):
+        """Set the filter to a nightcore style."""
+        player: wavelink.Player = cast(wavelink.Player, interaction.guild.voice_client)
+        if not player:
+            return
 
-        if not interaction.guild.voice_client:
-            # We cant pause, if we're not connected.
-            embed = Embed(title="Not connected.", color=nextcord.Color.blurple())
-            return await interaction.response.send_message(embed=embed)
+        filters: wavelink.Filters = player.filters
+        filters.timescale.set(pitch=1.2, speed=1.2, rate=1)
+        await player.set_filters(filters)
+        embed = Embed(title="Nightcore Filter activated", color=discord.Color.blurple())
+        await interaction.response.send_message(embed = embed)
 
-        if not interaction.user.voice or (player.is_connected and interaction.user.voice.channel.id != int(player.channel_id)):
-            # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
-            # may not pause the bot.
-            embed = Embed(title="You\'re not in my voicechannel!", color=nextcord.Color.blurple())
-            return await interaction.response.send_message(embed=embed)
-
-        await player.set_pause(True)
-        embed = Embed(title="Player paused", color=nextcord.Color.blurple())
-        await interaction.response.send_message(embed=embed)
-    
-    #resume the player
-    @nextcord.slash_command(name='resume', description="resumes paused track")
-    async def resume(self, interaction: Interaction):
-        player = self.bot.lavalink.player_manager.get(interaction.guild.id)
-
-        if not interaction.guild.voice_client:
-            # We cant resume, if we're not connected.
-            embed = Embed(title="Not connected.", color=nextcord.Color.blurple())
-            return await interaction.response.send_message(embed=embed)
-
-        if not interaction.user.voice or (player.is_connected and interaction.user.voice.channel.id != int(player.channel_id)):
-            # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
-            # may not resume the track.
-            embed = Embed(title="You\'re not in my voicechannel!", color=nextcord.Color.blurple())
-            return await interaction.response.send_message(embed=embed)
-
-        await player.set_pause(False)
-        embed = Embed(title="Player resumed", color=nextcord.Color.blurple())
-        await interaction.response.send_message(embed=embed)
-
-    
-    @nextcord.slash_command(name="loop", description="loops current song")        
-    async def loop(self, interaction: Interaction):
-        player = self.bot.lavalink.player_manager.get(interaction.guild.id)
-
-        if not interaction.guild.voice_client:
-            # We cant loop the tack, if we're not connected.
-            embed = Embed(title="Not connected.", color=nextcord.Color.blurple())
-            return await interaction.response.send_message(embed=embed)
-
-        if not interaction.user.voice or (player.is_connected and interaction.user.voice.channel.id != int(player.channel_id)):
-            # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
-            # may not loop the track.
-            embed = Embed(title="You\'re not in my voicechannel!", color=nextcord.Color.blurple())
-            return await interaction.response.send_message(embed=embed)
-        if player.repeat == False:
-            player.set_repeat(True)
-            embed = Embed(title="Song is now looping.", color=nextcord.Color.blurple())
-            return await interaction.response.send_message(embed=embed)
-        if player.repeat == True:
-            player.set_repeat(False)
-            embed = Embed(title="Song stopped looping.", color=nextcord.Color.blurple())
-            return await interaction.response.send_message(embed=embed)
-
-    #change the volume of the bot
-    @nextcord.slash_command(name="volume", description="changes volume of the player")
-    async def volume(self, interaction: Interaction, volume: int = SlashOption(description="number between 0 and 1000")):
-        player = self.bot.lavalink.player_manager.get(interaction.guild.id)
-
-        if not interaction.guild.voice_client:
-            # We cant change volume, if we're not connected.
-            embed = Embed(title="Not connected.", color=nextcord.Color.blurple())
-            return await interaction.response.send_message(embed=embed)
-
-        if not interaction.user.voice or (player.is_connected and interaction.user.voice.channel.id != int(player.channel_id)):
-            # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
-            # may not change the volume of the bot.
-            embed = Embed(title="You\'re not in my voicechannel!", color=nextcord.Color.blurple())
-            return await interaction.response.send_message(embed=embed)
-        if volume > 1000:
-            embed = Embed(title="Choose an number between 0 and 1000", color=nextcord.Color.blurple())
-            await interaction.response.send_message(embed=embed)
-        else:
-            await player.set_volume(volume)
-            embed = Embed(title='volume changed to ', description= {volume}, color=nextcord.Color.blurple())
-            await interaction.response.send_message(embed=embed)
-
-    #manage lowpass filter
-    @nextcord.slash_command(name="lowpass", description="Sets the strength of the low pass filter.")
-    async def lowpass(self, interaction: Interaction, strength: float = SlashOption(description="number between 0 and 100")):
-        """ Sets the strength of the low pass filter. """
-        # Get the player for this guild from cache.
-        player = self.bot.lavalink.player_manager.get(interaction.guild_id)
-        if not interaction.guild.voice_client:
-            # We cant change lowpass filter, if we're not connected.
-            embed = Embed(title="Not connected.", color=nextcord.Color.blurple())
-            return await interaction.response.send_message(embed=embed)
-
-        if not interaction.user.voice or (player.is_connected and interaction.user.voice.channel.id != int(player.channel_id)):
-            # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
-            # may not change the lowpass filter.
-            embed = Embed(title="You\'re not in my voicechannel!", color=nextcord.Color.blurple())
-            return await interaction.response.send_message(embed=embed)
-        # This enforces that strength should be a minimum of 0.
-        # There's no upper limit on this filter.
-        strength = max(0.0, strength)
-
-        # Even though there's no upper limit, we will enforce one anyway to prevent
-        # extreme values from being entered. This will enforce a maximum of 100.
-        strength = min(100, strength)
-
-        embed = nextcord.Embed(color=nextcord.Color.blurple(), title='Low Pass Filter')
-
-        # A strength of 0 effectively means this filter won't function, so we can disable it.
-        if strength == 0.0:
-            player.remove_filter('lowpass')
-            embed.description = 'Disabled **Low Pass Filter**'
-            return await interaction.response.send_message(embed=embed)
-
-        # Lets create our filter.
-        low_pass = LowPass()
-        low_pass.update(smoothing=strength)  # Set the filter strength to the user's desired level.
-
-        # This applies our filter. If the filter is already enabled on the player, then this will
-        # just overwrite the filter with the new values.
-        await player.set_filter(low_pass)
-
-        embed.description = f'Set **Low Pass Filter** strength to {strength}.'
-        await interaction.response.send_message(embed=embed)
-
-    @nextcord.slash_command(name="freebird", description="Play's Freebird")
-    async def freebird(self, interaction: Interaction):
-        """ Searches and plays a song from a given query. """
-        query = "https://www.youtube.com/watch?v=0LwcvjNJTuM"
-
-        player = self.bot.lavalink.player_manager.get(interaction.guild.id)
+    @commands.command(name="toggle",description="pause and resume track", aliases=["pause", "resume"])
+    async def pause_resume(self, interaction: Interaction):
+        """Pause or Resume the Player depending on its current state."""
+        player: wavelink.Player = cast(wavelink.Player, interaction.guild.voice_client)
+        if not player:
+            return
         
-        # Get the player for this guild from cache. When there is no player creat one. 
-        if player == None:
-            player = self.bot.lavalink.player_manager.create(interaction.guild.id)
-            await interaction.user.voice.channel.connect(cls=LavalinkVoiceClient)
+        await player.pause(not player.paused)
+        if(player.paused):
+            embed = Embed(title="Player paused", color=discord.Color.blurple())
         else:
-            player = self.bot.lavalink.player_manager.get(interaction.guild.id)
+            embed = Embed(title="Player resumed", color=discord.Color.blurple())
+        await interaction.response.send_message(embed = embed)
 
-        if not interaction.user.voice or (player.is_connected and interaction.user.voice.channel.id != int(player.channel_id)):
-            # Abuse prevention. Users not in voice channels, or not in the same voice channel as the bot
-            # may not disconnect the bot.
-            embed = Embed(title="You\'re not in my voicechannel!", color=nextcord.Color.blurple())
-            return await interaction.response.send_message(embed=embed)
+    @commands.command(name="Volume", description="set volume of the Player")
+    async def volume(self, interaction: Interaction, value: int):
+        """Change the volume of the player."""
+        player: wavelink.Player = cast(wavelink.Player, interaction.guild.voice_client)
+        if not player:
+            return
 
-        # Remove leading and trailing <>. <> may be used to suppress embedding links in nextcord.
-        query = query.strip('<>')
+        await player.set_volume(value)
+        embed = Embed(title="Volume set to" + value, color=discord.Color.blurple())
+        await interaction.response.send_message(embed = embed)
 
-        # Check if the user input might be a URL. If it isn't, we can Lavalink do a YouTube search for it instead.
-        # SoundCloud searching is possible by prefixing "scsearch:" instead.
-        if not url_rx.match(query):
-            query = f'ytsearch:{query}'
+    @commands.command(name="Leave")
+    async def leave(self, interaction: Interaction):
+        """Disconnect the Player."""
+        player: wavelink.Player = cast(wavelink.Player, interaction.guild.voice_client)
+        if not player:
+            return
 
-        # Get the results for the query from Lavalink.
-        results = await player.node.get_tracks(query)
-
-        # Results could be None if Lavalink returns an invalid response (non-JSON/non-200 (OK)).
-        # ALternatively, resullts.tracks could be an empty array if the query yielded no tracks.
-        if not results or not results.tracks:
-            embed = Embed(title="Nothing found!", color=nextcord.Color.blurple())
-            return await interaction.response.send_message(embed=embed)
-
-        embed = Embed(color=nextcord.Color.blurple())
-
-        # Valid loadTypes are:
-        #   TRACK_LOADED    - single video/direct URL)
-        #   PLAYLIST_LOADED - direct URL to playlist)
-        #   SEARCH_RESULT   - query prefixed with either ytsearch: or scsearch:.
-        #   NO_MATCHES      - query yielded no results
-        #   LOAD_FAILED     - most likely, the video encountered an exception during loading.
-        
-        track = results.tracks[0]
-        embed.title = 'Track Enqueued:'
-        embed.description = f'[{track.title}]({track.uri})'
-
-        player.add(requester=interaction.user.id, track=track)
-
-        await interaction.response.send_message(embed=embed)
-
-        # We don't want to call .play() if the player is playing as that will effectively skip
-        # the current track.
-        if not player.is_playing:
-            await player.play()
+        await player.disconnect()
+        embed = Embed(title="Player Disconnected", color=discord.Color.blurple())
+        await interaction.response.send_message(embed = embed)
 
 
 def setup(bot):
