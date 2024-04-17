@@ -8,7 +8,7 @@ from typing import cast
 
 import discord
 from discord.ext import commands
-
+from discord import app_commands
 import wavelink
 
 
@@ -26,21 +26,15 @@ PASSWORD = os.getenv('PASSWORD')
 
 
 class Music(commands.Cog):
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot):
         self.bot = bot
-
-    async def setup_hook(self) -> None:
-        nodes = [wavelink.Node(uri="localhost:5000", password=PASSWORD)]
-
-        # cache_capacity is EXPERIMENTAL. Turn it off by passing None
-        await wavelink.Pool.connect(nodes=nodes, client=self)
-
+        
     @commands.Cog.listener()
-    async def on_wavelink_node_ready(self, payload: wavelink.NodeReadyEventPayload) -> None:
+    async def on_wavelink_node_ready(self, payload: wavelink.NodeReadyEventPayload):
         print(f"Wavelink Node connected: {payload.node!r} | Resumed: {payload.resumed}")
 
     @commands.Cog.listener()
-    async def on_wavelink_track_start(self, payload: wavelink.TrackStartEventPayload) -> None:
+    async def on_wavelink_track_start(self, payload: wavelink.TrackStartEventPayload):
         player: wavelink.Player | None = payload.player
         if not player:
             # Handle edge cases...
@@ -64,9 +58,10 @@ class Music(commands.Cog):
         await player.home.send(embed=embed)
 
 
-    @commands.command(name="Play", description="Play Song")
+    @app_commands.command(name="play", description="Play Song")
     async def play(self, interaction:Interaction, query: str):
         """Play a song with the given query."""
+        print(query)
         if not Interaction.guild:
             return
 
@@ -94,8 +89,8 @@ class Music(commands.Cog):
 
         # Lock the player to this channel...
         if not hasattr(player, "home"):
-            player.home = interaction.user.voice.channel
-        elif player.home != interaction.user.voice.channel:
+            player.home = interaction.channel
+        elif player.home != interaction.channel:
             embed = Embed(title=f"You can only play songs in {player.home.mention}, as the player has already started there.", color=discord.Color.blurple())
             await interaction.response.send_message(embed = embed)
             return
@@ -126,7 +121,7 @@ class Music(commands.Cog):
             await player.play(player.queue.get(), volume=30)
 
 
-    @commands.command(name="Skip", description="Skip current track")
+    @app_commands.command(name="skip", description="Skip current track")
     async def skip(self, interaction: Interaction):
         """Skip the current song."""
         player: wavelink.Player = cast(wavelink.Player, interaction.guild.voice_client)
@@ -136,7 +131,7 @@ class Music(commands.Cog):
         await player.skip(force=True)
         await interaction.response.send_message(embed = embed)
 
-    @commands.command(name="nightcore", description="apply nightcore filter")
+    @app_commands.command(name="nightcore", description="apply nightcore filter")
     async def nightcore(self, interaction: Interaction):
         """Set the filter to a nightcore style."""
         player: wavelink.Player = cast(wavelink.Player, interaction.guild.voice_client)
@@ -149,7 +144,7 @@ class Music(commands.Cog):
         embed = Embed(title="Nightcore Filter activated", color=discord.Color.blurple())
         await interaction.response.send_message(embed = embed)
 
-    @commands.command(name="toggle",description="pause and resume track", aliases=["pause", "resume"])
+    @app_commands.command(name="toggle",description="pause and resume track")
     async def pause_resume(self, interaction: Interaction):
         """Pause or Resume the Player depending on its current state."""
         player: wavelink.Player = cast(wavelink.Player, interaction.guild.voice_client)
@@ -163,7 +158,7 @@ class Music(commands.Cog):
             embed = Embed(title="Player resumed", color=discord.Color.blurple())
         await interaction.response.send_message(embed = embed)
 
-    @commands.command(name="Volume", description="set volume of the Player")
+    @app_commands.command(name="volume", description="set volume of the Player")
     async def volume(self, interaction: Interaction, value: int):
         """Change the volume of the player."""
         player: wavelink.Player = cast(wavelink.Player, interaction.guild.voice_client)
@@ -171,10 +166,10 @@ class Music(commands.Cog):
             return
 
         await player.set_volume(value)
-        embed = Embed(title="Volume set to" + value, color=discord.Color.blurple())
+        embed = Embed(title=f'Volume set to {value}', color=discord.Color.blurple())
         await interaction.response.send_message(embed = embed)
 
-    @commands.command(name="Leave")
+    @app_commands.command(name="leave")
     async def leave(self, interaction: Interaction):
         """Disconnect the Player."""
         player: wavelink.Player = cast(wavelink.Player, interaction.guild.voice_client)
@@ -186,5 +181,5 @@ class Music(commands.Cog):
         await interaction.response.send_message(embed = embed)
 
 
-def setup(bot):
-    bot.add_cog(Music(bot))
+async def setup(bot):
+    await bot.add_cog(Music(bot))
