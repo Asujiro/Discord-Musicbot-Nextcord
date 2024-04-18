@@ -28,11 +28,13 @@ PASSWORD = os.getenv('PASSWORD')
 class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        
+
+    #Send connsole message when Node is connected    
     @commands.Cog.listener()
     async def on_wavelink_node_ready(self, payload: wavelink.NodeReadyEventPayload):
         print(f"Wavelink Node connected: {payload.node!r} | Resumed: {payload.resumed}")
 
+    #Sends Now Playing message on start of new track
     @commands.Cog.listener()
     async def on_wavelink_track_start(self, payload: wavelink.TrackStartEventPayload):
         player: wavelink.Player | None = payload.player
@@ -43,8 +45,8 @@ class Music(commands.Cog):
         original: wavelink.Playable | None = payload.original
         track: wavelink.Playable = payload.track
 
-        embed: discord.Embed = discord.Embed(title="Now Playing")
-        embed.description = f"**{track.title}** by `{track.author}`"
+        embed: discord.Embed = discord.Embed(title="Now Playing:")
+        embed.description = f"**[{track.title}]({track.uri})** by `{track.author}`"
 
         if track.artwork:
             embed.set_image(url=track.artwork)
@@ -57,6 +59,14 @@ class Music(commands.Cog):
 
         await player.home.send(embed=embed)
 
+    #Handels disconnect when queue is empty
+    @commands.Cog.listener()
+    async def on_wavelink_track_end(self, payload: wavelink.TrackEndEventPayload):
+        player: wavelink.Player | None = payload.player
+        if not player.queue.is_empty:
+            await player.play(player.queue.get())
+        else:
+            await player.disconnect()
 
     @app_commands.command(name="play", description="Play Song")
     async def play(self, interaction:Interaction, query: str):
@@ -85,7 +95,7 @@ class Music(commands.Cog):
         # enabled = AutoPlay will play songs for us and fetch recommendations...
         # partial = AutoPlay will play songs for us, but WILL NOT fetch recommendations...
         # disabled = AutoPlay will do nothing...
-        player.autoplay = wavelink.AutoPlayMode.enabled
+        player.autoplay = wavelink.AutoPlayMode.disabled
 
         # Lock the player to this channel...
         if not hasattr(player, "home"):
@@ -108,12 +118,14 @@ class Music(commands.Cog):
         if isinstance(tracks, wavelink.Playlist):
             # tracks is a playlist...
             added: int = await player.queue.put_wait(tracks)
-            embed = Embed(title=f"Added the playlist **`{tracks.name}`** ({added} songs) to the queue.", color=discord.Color.blurple())
+            embed = Embed(title=f"Added the playlist:", color=discord.Color.blurple())
+            embed.description = f"**`{tracks.name}`** ({added} songs) to the queue."
             await interaction.response.send_message(embed = embed)
         else:
             track: wavelink.Playable = tracks[0]
             await player.queue.put_wait(track)
-            embed = Embed(title=f"Added **`{track}`** to the queue.", color=discord.Color.blurple())
+            embed: discord.Embed = discord.Embed(title="Track Enqueued:", color=discord.Color.blurple())
+            embed.description = f"Added **[{track.title}]({track.uri})** to the queue."
             await interaction.response.send_message(embed = embed)
 
         if not player.playing:
@@ -126,7 +138,9 @@ class Music(commands.Cog):
         """Skip the current song."""
         player: wavelink.Player = cast(wavelink.Player, interaction.guild.voice_client)
         if not player:
-            return
+            embed = Embed(title="Not Connected", color=discord.Color.blurple())
+            await interaction.response.send_message(embed = embed)
+        
         embed = Embed(title="Track Skipped", color=discord.Color.blurple())
         await player.skip(force=True)
         await interaction.response.send_message(embed = embed)
@@ -136,7 +150,8 @@ class Music(commands.Cog):
         """Set the filter to a nightcore style."""
         player: wavelink.Player = cast(wavelink.Player, interaction.guild.voice_client)
         if not player:
-            return
+            embed = Embed(title="Not Connected", color=discord.Color.blurple())
+            await interaction.response.send_message(embed = embed)
 
         filters: wavelink.Filters = player.filters
         filters.timescale.set(pitch=1.2, speed=1.2, rate=1)
@@ -149,7 +164,8 @@ class Music(commands.Cog):
         """Pause or Resume the Player depending on its current state."""
         player: wavelink.Player = cast(wavelink.Player, interaction.guild.voice_client)
         if not player:
-            return
+            embed = Embed(title="Not Connected", color=discord.Color.blurple())
+            await interaction.response.send_message(embed = embed)
         
         await player.pause(not player.paused)
         if(player.paused):
@@ -163,7 +179,8 @@ class Music(commands.Cog):
         """Change the volume of the player."""
         player: wavelink.Player = cast(wavelink.Player, interaction.guild.voice_client)
         if not player:
-            return
+            embed = Embed(title="Not Connected", color=discord.Color.blurple())
+            await interaction.response.send_message(embed = embed)
 
         await player.set_volume(value)
         embed = Embed(title=f'Volume set to {value}', color=discord.Color.blurple())
@@ -174,7 +191,8 @@ class Music(commands.Cog):
         """Disconnect the Player."""
         player: wavelink.Player = cast(wavelink.Player, interaction.guild.voice_client)
         if not player:
-            return
+            embed = Embed(title="Not Connected", color=discord.Color.blurple())
+            await interaction.response.send_message(embed = embed)
 
         await player.disconnect()
         embed = Embed(title="Player Disconnected", color=discord.Color.blurple())

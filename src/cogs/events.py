@@ -1,5 +1,4 @@
 
-import discord
 from discord.ext import commands
 from urllib.parse import urlparse, urlunparse
 my_server = 390194259405438989
@@ -8,6 +7,7 @@ class Events(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    # Welcome Message for my server
     @commands.Cog.listener()
     async def on_member_join(self, ctx):
         guild = ctx.guild
@@ -17,7 +17,7 @@ class Events(commands.Cog):
             await guild.system_channel.send(msg)
 
     @commands.Cog.listener()
-    async def on_message(slef, ctx):
+    async def on_message(self, ctx):
         if ctx.author.bot:
             return
 
