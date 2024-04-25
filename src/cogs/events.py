@@ -36,7 +36,7 @@ class Events(commands.Cog):
 
                         mentioned_users = ctx.mentions
                         # Baue die modifizierte Nachricht mit den getaggten Benutzern
-                        modified_content = f'{modified_content} {" ".join(user.mention for user in mentioned_users)}'
+                        modified_content = f'{modified_content} {" ".join(user.mention for user in mentioned_users).join(" ")}'
 
                         await ctx.delete()
                         await ctx.channel.send(f'Send by {ctx.author.mention}: {modified_content}')
