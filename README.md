@@ -1,2 +1,4 @@
-# Discord-Musicbot-Nextcord
- A Discord Bot written in Python with Nextcord and Lavalink
+# Discord-Musicbot
+
+ A Discord Bot written in Python
+ 
